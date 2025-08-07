@@ -11,3 +11,7 @@
 /.eggs/
 /.mypy_cache/
 /.pytest_cache/
+
+# contributor-specific environment files
+pyproject.toml
+uv.lock
