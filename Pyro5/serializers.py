@@ -32,7 +32,7 @@ else:
         BaseModel = None
 from . import errors, config
 
-__all__ = ["SerializerBase", "SerpentSerializer", "JsonSerializer", "MarshalSerializer", "MsgpackSerializer",
+__all__ = ["SerializerBase", "SerpentSerializer", "JsonSerializer", "MarshalSerializer", "MsgpackSerializer", "BaseModelJsonSerializer", 
            "serializers", "serializers_by_id"]
 
 log = logging.getLogger("Pyro5.serializers")
