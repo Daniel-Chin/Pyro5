@@ -6,6 +6,7 @@ Pyro - Python Remote Objects.  Copyright by Irmen de Jong (irmen@razorvine.net).
 
 import os
 import platform
+import typing as tp
 from . import __version__, _pyro_logfile, _pyro_loglevel
 
 
@@ -23,6 +24,13 @@ class Configuration:
         "ITER_STREAMING", "ITER_STREAM_LIFETIME", "ITER_STREAM_LINGER", "LOGFILE", "LOGLEVEL", "LOGWIRE",
         "SSL", "SSL_SERVERCERT", "SSL_SERVERKEY", "SSL_SERVERKEYPASSWD", "SSL_REQUIRECLIENTCERT",
         "SSL_CLIENTCERT", "SSL_CLIENTKEY", "SSL_CLIENTKEYPASSWD", "SSL_CACERTS"
+    ]
+
+    SERIALIZER: tp.Union[
+        tp.Literal["serpent"], 
+        tp.Literal["marshal"],
+        tp.Literal["json"],
+        tp.Literal["basemodel-json"],
     ]
 
     def __init__(self):
