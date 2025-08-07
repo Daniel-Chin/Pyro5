@@ -104,7 +104,7 @@ PREFER_IP_VERSION         int     0                       The IP address type th
 SERPENT_BYTES_REPR        bool    False                   If True, use Python's repr format to serialize bytes types, rather than the base-64 encoding format.
 THREADPOOL_SIZE           int     80                      For the thread pool server: maximum number of threads running
 THREADPOOL_SIZE_MIN       int     4                       For the thread pool server: minimum number of threads running
-SERIALIZER                str     serpent                 The wire protocol serializer to use for clients/proxies (one of: serpent, json, marshal, msgpack)
+SERIALIZER                str     serpent                 The wire protocol serializer to use for clients/proxies (one of: serpent, json, marshal, msgpack, basemodel-json)
 LOGWIRE                   bool    False                   If wire-level message data should be written to the logfile (you may want to disable COMPRESSION)
 MAX_RETRIES               int     0                       Automatically retry network operations for some exceptions (timeout / connection closed), be careful to use when remote functions have a side effect (e.g.: calling twice results in error)
 ITER_STREAMING            bool    True                    Should iterator item streaming support be enabled in the server (default=True)

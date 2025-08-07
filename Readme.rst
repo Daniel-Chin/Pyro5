@@ -39,7 +39,7 @@ Features
 - works between different system architectures and operating systems.
 - able to communicate between different Python versions transparently.
 - defaults to a safe serializer (`serpent <https://pypi.python.org/pypi/serpent>`_) that supports many Python data types.
-- supports different serializers (serpent, json, marshal, msgpack).
+- supports different serializers (serpent, json, marshal, msgpack, basemodel-json).
 - can use IPv4, IPv6 and Unix domain sockets.
 - optional secure connections via SSL/TLS (encryption, authentication and integrity), including certificate validation on both ends (2-way ssl).
 - lightweight client library available for .NET and Java native code ('Pyrolite', provided separately).
