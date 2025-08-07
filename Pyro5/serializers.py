@@ -4,6 +4,7 @@ The various serializers.
 Pyro - Python Remote Objects.  Copyright by Irmen de Jong (irmen@razorvine.net).
 """
 
+import typing as tp
 import array
 import builtins
 import uuid
@@ -17,10 +18,18 @@ import marshal
 import json
 import serpent
 import contextlib
+import hashlib
 try:
     import msgpack
 except ImportError:
     msgpack = None
+if tp.TYPE_CHECKING:
+    from pydantic import BaseModel
+else:
+    try:
+        from pydantic import BaseModel
+    except ImportError:
+        BaseModel = None
 from . import errors, config
 
 __all__ = ["SerializerBase", "SerpentSerializer", "JsonSerializer", "MarshalSerializer", "MsgpackSerializer",
@@ -415,7 +424,7 @@ class MsgpackSerializer(SerializerBase):
 
     __type_replacements = {}
 
-    def dumpsCall(self, obj, method, vargs, kwargs):
+    def dumpsCall(addrOfClassself, obj, method, vargs, kwargs):
         return msgpack.packb((obj, method, vargs, kwargs), use_bin_type=True, default=self.default)
 
     def dumps(self, data):
@@ -478,12 +487,105 @@ class MsgpackSerializer(SerializerBase):
             raise ValueError("refusing to register replacement for a non-type or the type 'type' itself")
         cls.__type_replacements[object_type] = replacement_function
 
+SomeBaseModel = tp.TypeVar("SomeBaseModel", bound=BaseModel)
+
+class BaseModelRegistry:
+    def __init__(self):
+        self.lookup: tp.Dict[str, tp.Type[BaseModel]] = {}
+
+    def register(self, model: tp.Type[SomeBaseModel]) -> tp.Type[SomeBaseModel]:
+        """
+        Can be used as a decorator.  
+        """
+        assert model.__name__ not in self.lookup, model.__name__
+        self.lookup[self.addrOfClass(model)] = model
+        return model
+    
+    @staticmethod
+    def addrOfClass(t: tp.Type, /) -> str:
+        return f'{t.__module__}.{t.__qualname__}'
+    
+    def classOfAddr(self, addr: str) -> tp.Type[BaseModel]:
+        try:
+            return self.lookup[addr]
+        except KeyError:
+            raise KeyError(f"no BaseModel registered with address '{addr}'")
+
+class BaseModelJsonSerializer(SerializerBase):
+    """
+    (de)serializer that wraps the BaseModel json serialization protocol.  
+    Assumes top-level objects are always BaseModel instances.  
+    Does not define any recursion logic. All that is offloaded to Pydantic BaseModel.  
+    Open question: what if a downstream BaseModel wants to include pyro-internal objects e.g. proxies?  
+    """
+    serializer_id = 5  # never change this
+
+    __type_replacements = {}
+
+    __baseModelRegistry = BaseModelRegistry()
+    register = __baseModelRegistry.register
+
+    def dumpsCall(self, obj, method, vargs, kwargs):
+        call_dict = {
+            "object": obj, 
+            "method": method, 
+            "params": [self.dumps(x) for x in vargs], 
+            "kwargs": {k: self.dumps(v) for k, v in kwargs.items()}, 
+        }
+        json_text = json.dumps(call_dict, ensure_ascii=False)
+        return json_text.encode("utf-8")
+
+    def dumps(self, data):
+        if isinstance(data, BaseModel):
+            json_text = json.dumps({
+                'is_base_model': True, 
+                'base_model_addr': self.__baseModelRegistry.addrOfClass(data.__class__),
+                'payload': data.model_dump_json(), 
+            })
+        else:
+            # some pyro-internal objects need `default` treatment
+            json_text = json.dumps({
+                'is_base_model': False, 
+                'payload': data, 
+            }, ensure_ascii=False, default=self.default)
+        return json_text.encode("utf-8")
+
+    def loadsCall(self, data):
+        json_text = self._convertToBytes(data).decode("utf-8")
+        call_dict = json.loads(json_text)
+        return (
+            call_dict["object"], 
+            call_dict["method"], 
+            [self.loads(x) for x in call_dict["params"]],
+            {k: self.loads(v) for k, v in call_dict["kwargs"].items()},
+        )
+
+    def loads(self, data):
+        json_text = self._convertToBytes(data).decode("utf-8")
+        top_dict = json.loads(json_text)
+        if top_dict.get("is_base_model", False):
+            addr = top_dict["base_model_addr"]
+            model_class = self.__baseModelRegistry.classOfAddr(addr)
+            return model_class.model_validate_json(top_dict["payload"])
+        else:
+            return self.recreate_classes(top_dict["payload"])
+
+    def default(self, obj):
+        return JsonSerializer.default(tp.cast(JsonSerializer, self), obj)
+
+    @classmethod
+    def register_type_replacement(cls, object_type, replacement_function):
+        if object_type is type or not inspect.isclass(object_type):
+            raise ValueError("refusing to register replacement for a non-type or the type 'type' itself")
+        cls.__type_replacements[object_type] = replacement_function
+
 
 """The various serializers that are supported"""
 serializers = {
     "serpent": SerpentSerializer(),
     "marshal": MarshalSerializer(),
-    "json": JsonSerializer()
+    "json": JsonSerializer(),
+    "basemodel-json": BaseModelJsonSerializer(),
 }
 
 if msgpack:
